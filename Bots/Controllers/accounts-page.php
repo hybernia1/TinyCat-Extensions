@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+use TinyCat\Extension\Registry;
+
 if (!defined('TINYCAT')) {
     http_response_code(403);
     exit('Forbidden');
@@ -22,7 +24,7 @@ layout('layout', [
             </button>
         </div>
         <div class="card-body" id="bot-accounts-list">
-            <?= ExtensionRegistry::render('bots', 'parts/accounts', BotAdmin::accountsViewData()) ?>
+            <?= Registry::render('bots', 'parts/accounts', BotAdmin::accountsViewData()) ?>
         </div>
     </section>
     <?php

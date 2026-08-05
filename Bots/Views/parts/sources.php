@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+use TinyCat\Extension\Registry;
+
 if (!defined('TINYCAT')) {
     http_response_code(403);
     exit('Forbidden');
@@ -77,7 +79,7 @@ $activeSources = count(array_filter(
                 </table>
             </div>
             <?php foreach ($sources as $source): ?>
-                <?= ExtensionRegistry::render('bots', 'modals/source', BotAdmin::sourceFormData($source)) ?>
+                <?= Registry::render('bots', 'modals/source', BotAdmin::sourceFormData($source)) ?>
             <?php endforeach; ?>
         <?php endif; ?>
     <?php endif; ?>

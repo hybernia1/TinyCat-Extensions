@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+use TinyCat\Extension\Registry;
+
 if (!defined('TINYCAT')) {
     http_response_code(403);
     exit('Forbidden');
@@ -91,6 +93,6 @@ $hasFilters = (bool) ($has_filters ?? false);
             'history_path' => '/admin/bots/accounts',
         ]) ?>
     <?php endif; ?>
-    <?= ExtensionRegistry::render('bots', 'modals/account-create') ?>
-    <?= ExtensionRegistry::render('bots', 'modals/account-filter', ['filters' => $filters]) ?>
+    <?= Registry::render('bots', 'modals/account-create') ?>
+    <?= Registry::render('bots', 'modals/account-filter', ['filters' => $filters]) ?>
 </div>
