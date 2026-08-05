@@ -7,7 +7,7 @@
         "en": "Publish RSS and Atom feed items through bot accounts."
     },
     "homepage": "https://github.com/hybernia1/TinyCat-Extensions/tree/main/Bots",
-    "version": "1.0.1",
+    "version": "1.1.0",
     "legacy_version": "1.0.0",
     "requires": {
         "tinycat": "1.0.14",
@@ -17,5 +17,49 @@
     "migrations": [
         "migrations/20260805_001_install_bots.php"
     ],
+    "uninstall": {
+        "handler": "uninstall.php",
+        "options": [
+            {
+                "id": "keep",
+                "labels": {
+                    "cs": "Zachovat všechna data",
+                    "en": "Keep all data"
+                },
+                "descriptions": {
+                    "cs": "Odeberou se pouze soubory rozšíření. Účty botů, zdroje a historie zůstanou připravené pro případnou opětovnou instalaci.",
+                    "en": "Only the extension files are removed. Bot accounts, sources, and history remain ready for a future reinstall."
+                },
+                "danger": false,
+                "recommended": false
+            },
+            {
+                "id": "convert",
+                "labels": {
+                    "cs": "Smazat data a převést boty",
+                    "en": "Delete data and convert bot accounts"
+                },
+                "descriptions": {
+                    "cs": "Zdroje a importní historie se smažou. Účty botů se převedou na běžné účty bez hesla, takže jejich obsah zůstane zachovaný; heslo lze později nastavit v administraci.",
+                    "en": "Sources and import history are deleted. Bot accounts become regular accounts without passwords, preserving their content; an administrator can set passwords later."
+                },
+                "danger": true,
+                "recommended": true
+            },
+            {
+                "id": "delete",
+                "labels": {
+                    "cs": "Smazat boty i jejich obsah",
+                    "en": "Delete bot accounts and their content"
+                },
+                "descriptions": {
+                    "cs": "Smažou se zdroje, historie, všechny účty botů a kaskádově také jejich příspěvky a související data.",
+                    "en": "Sources, history, all bot accounts, and their posts and related data are deleted through database cascades."
+                },
+                "danger": true,
+                "recommended": false
+            }
+        ]
+    },
     "autoload": false
 }

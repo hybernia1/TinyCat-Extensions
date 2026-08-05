@@ -6,7 +6,9 @@ This repository is the signed source used by the Extensions screen in TinyCat ad
 
 ## Official extensions
 
-- **Bots** — publishes RSS and Atom feed items through bot accounts.
+- **Bots** — publishes RSS and Atom feed items through bot accounts. Its own
+  uninstall flow can retain all data, convert bot accounts while preserving
+  their content, or delete bot accounts and their content.
 
 ## Repository layout
 
