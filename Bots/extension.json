@@ -1,0 +1,21 @@
+{
+    "schema": 1,
+    "slug": "bots",
+    "name": "Bots",
+    "descriptions": {
+        "cs": "Publikování položek z RSS a Atom zdrojů prostřednictvím účtů botů.",
+        "en": "Publish RSS and Atom feed items through bot accounts."
+    },
+    "homepage": "https://github.com/hybernia1/TinyCat-Extensions/tree/main/Bots",
+    "version": "1.0.1",
+    "legacy_version": "1.0.0",
+    "requires": {
+        "tinycat": "1.0.14",
+        "php": "8.4.0"
+    },
+    "entry": "bootstrap.php",
+    "migrations": [
+        "migrations/20260805_001_install_bots.php"
+    ],
+    "autoload": false
+}
