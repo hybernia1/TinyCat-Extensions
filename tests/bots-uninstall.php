@@ -2,13 +2,13 @@
 declare(strict_types=1);
 
 $tinycatRoot = realpath((string) ($argv[1] ?? getenv('TINYCAT_ROOT') ?: ''));
-if ($tinycatRoot === false || !is_file($tinycatRoot . DIRECTORY_SEPARATOR . 'App' . DIRECTORY_SEPARATOR . 'functions.php')) {
+if ($tinycatRoot === false || !is_file($tinycatRoot . DIRECTORY_SEPARATOR . 'App' . DIRECTORY_SEPARATOR . 'bootstrap.php')) {
     fwrite(STDERR, "Usage: php tests/bots-uninstall.php /path/to/tinycat\n");
     exit(2);
 }
 
 define('TINYCAT', true);
-require_once $tinycatRoot . DIRECTORY_SEPARATOR . 'App' . DIRECTORY_SEPARATOR . 'functions.php';
+require_once $tinycatRoot . DIRECTORY_SEPARATOR . 'App' . DIRECTORY_SEPARATOR . 'bootstrap.php';
 
 $config = (array) config('database', []);
 if (($config['driver'] ?? 'mysql') !== 'mysql') {

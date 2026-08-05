@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+use TinyCat\Extension\Registry;
+
 if (!defined('TINYCAT')) {
     http_response_code(403);
     exit('Forbidden');
@@ -24,7 +26,7 @@ final class Bots
             'profile_schema_type' => 'Organization',
         ]);
 
-        ExtensionRegistry::register('bots', [
+        Registry::register('bots', [
             'root' => __DIR__,
             'views' => __DIR__ . '/Views',
             'translations' => __DIR__ . '/lang',
@@ -68,31 +70,31 @@ final class Bots
 
         route('GET', '/admin/bots/{bot_id:[0-9]+}', static function (string $bot_id): void {
             $_GET['id'] = (string) max(0, (int) $bot_id);
-            require ExtensionRegistry::file('bots', 'Controllers/detail.php');
+            require Registry::file('bots', 'Controllers/detail.php');
         });
 
         route('GET', '/admin/bots/accounts', static function (): void {
-            require ExtensionRegistry::file('bots', 'Controllers/accounts-page.php');
+            require Registry::file('bots', 'Controllers/accounts-page.php');
         });
 
         route('GET', '/admin/bots/list', static function (): void {
-            require ExtensionRegistry::file('bots', 'Controllers/sources-page.php');
+            require Registry::file('bots', 'Controllers/sources-page.php');
         });
     }
 
     public static function registerApiRoutes(): void
     {
         api_route('ANY', '/admin/bots', static function (): void {
-            require ExtensionRegistry::file('bots', 'Controllers/sources-api.php');
+            require Registry::file('bots', 'Controllers/sources-api.php');
         });
 
         api_route('POST', '/admin/bots/{action:run|toggle}', static function (string $action): void {
             $botAdminAction = $action;
-            require ExtensionRegistry::file('bots', 'Controllers/sources-api.php');
+            require Registry::file('bots', 'Controllers/sources-api.php');
         });
 
         api_route('ANY', '/admin/bot-accounts', static function (): void {
-            require ExtensionRegistry::file('bots', 'Controllers/accounts-api.php');
+            require Registry::file('bots', 'Controllers/accounts-api.php');
         });
     }
 

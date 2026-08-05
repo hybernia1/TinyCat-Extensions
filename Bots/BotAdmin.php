@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+use TinyCat\Extension\Registry;
+
 if (!defined('TINYCAT')) {
     http_response_code(403);
     exit('Forbidden');
@@ -37,7 +39,7 @@ final class BotAdmin
         }
 
         return api_payload($data, static function () use ($viewData, $id): array {
-            $partial = ['html' => ExtensionRegistry::render('bots', 'parts/sources', $viewData)];
+            $partial = ['html' => Registry::render('bots', 'parts/sources', $viewData)];
             if ($id !== null) {
                 $partial['id'] = $id;
             }
@@ -191,7 +193,7 @@ final class BotAdmin
         }
 
         return api_payload($payload, static function () use ($viewData, $id): array {
-            $partial = ['html' => ExtensionRegistry::render('bots', 'parts/accounts', $viewData)];
+            $partial = ['html' => Registry::render('bots', 'parts/accounts', $viewData)];
             if ($id !== null) {
                 $partial['id'] = $id;
             }

@@ -16,11 +16,23 @@ Each top-level extension directory contains its own `extension.json`, runtime co
 
 Packages are installed only after TinyCat verifies the catalog signature, package SHA-256, exact file list, manifest identity, and compatibility requirements.
 
+Official extensions target the namespaced `TinyCat\Extension\Registry` API.
+The release builder rejects packages that depend on the removed global
+`ExtensionRegistry` compatibility name or publish legacy adoption metadata.
+
 ## Building a release
 
 ```shell
 php tools/build-release.php --output=dist --key=extension-signing.key
 php tools/verify-release.php dist
+```
+
+Before publishing a Registry API change, verify Bots against the target TinyCat
+checkout:
+
+```shell
+php tests/bots-bootstrap.php /path/to/tinycat
+php tests/bots-uninstall.php /path/to/tinycat
 ```
 
 The signing key is private release infrastructure and must never be committed.

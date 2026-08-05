@@ -70,6 +70,7 @@ foreach (new DirectoryIterator($root) as $directory) {
         || preg_match('/^[a-z][a-z0-9_-]{0,63}$/', $slug) !== 1
         || strtolower($name) !== $slug
         || !$validVersion($version) || !$validVersion($minimumTinycat) || !$validVersion($minimumPhp)
+        || array_key_exists('legacy_version', $manifest)
         || filter_var($homepage, FILTER_VALIDATE_URL) === false
         || strtolower((string) parse_url($homepage, PHP_URL_SCHEME)) !== 'https'
     ) {
@@ -85,6 +86,13 @@ foreach (new DirectoryIterator($root) as $directory) {
         if (strlen($relative) > 240 || preg_match('/^[A-Za-z0-9._\/-]+$/', $relative) !== 1) {
             fwrite(STDERR, "Unsupported extension file path: {$relative}\n");
             exit(1);
+        }
+        if (str_ends_with(strtolower($relative), '.php')) {
+            $source = file_get_contents($file->getPathname());
+            if (!is_string($source) || str_contains($source, 'ExtensionRegistry::')) {
+                fwrite(STDERR, "Extension must use TinyCat\\Extension\\Registry: {$relative}\n");
+                exit(1);
+            }
         }
         $files[$relative] = $file->getPathname();
     }

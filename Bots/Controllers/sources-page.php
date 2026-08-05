@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+use TinyCat\Extension\Registry;
+
 if (!defined('TINYCAT')) {
     http_response_code(403);
     exit('Forbidden');
@@ -29,10 +31,10 @@ layout('layout', [
             </button>
         </div>
         <div class="card-body" id="bots-list">
-            <?= ExtensionRegistry::render('bots', 'parts/sources', BotAdmin::sourcesViewData()) ?>
+            <?= Registry::render('bots', 'parts/sources', BotAdmin::sourcesViewData()) ?>
         </div>
     </section>
-    <?= ExtensionRegistry::render('bots', 'modals/source', BotAdmin::sourceFormData(null)) ?>
-    <?= ExtensionRegistry::render('bots', 'modals/source-filter', BotAdmin::sourceFilterData()) ?>
+    <?= Registry::render('bots', 'modals/source', BotAdmin::sourceFormData(null)) ?>
+    <?= Registry::render('bots', 'modals/source-filter', BotAdmin::sourceFilterData()) ?>
     <?php
 });
