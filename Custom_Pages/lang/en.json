@@ -1,0 +1,40 @@
+{
+    "custom_pages": {
+        "title": "Custom Pages",
+        "intro": "Create standalone pages for your site.",
+        "new_page": "New page",
+        "edit_page": "Edit page",
+        "page": "Page",
+        "url": "URL",
+        "view_page": "View page",
+        "empty": "No custom pages have been created yet.",
+        "fields": {
+            "title": "Title",
+            "slug": "URL slug",
+            "body": "Content"
+        },
+        "status": {
+            "draft": "Draft",
+            "published": "Published"
+        },
+        "slug_help": "Leave empty to create a slug from the title. Use lowercase letters, numbers and hyphens.",
+        "slug_locked_help": "Published page URLs stay fixed so existing links keep working.",
+        "markdown_help": "Markdown is supported: headings, lists, emphasis, links, quotes and code. HTML is shown as text for safety.",
+        "delete_title": "Delete page?",
+        "delete_confirm": "Delete “{title}” permanently? This cannot be undone.",
+        "validation": {
+            "title_required": "Enter a page title.",
+            "slug_invalid": "Enter a valid URL slug.",
+            "slug_taken": "This URL slug is already in use.",
+            "slug_locked": "The URL slug cannot change after the page has been published.",
+            "body_too_long": "Page content may contain at most 200,000 characters.",
+            "status_invalid": "Choose a valid page status."
+        },
+        "messages": {
+            "created": "Page created.",
+            "saved": "Page saved.",
+            "deleted": "Page deleted.",
+            "not_found": "Page not found."
+        }
+    }
+}
