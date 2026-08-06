@@ -1,0 +1,40 @@
+{
+    "custom_pages": {
+        "title": "Vlastní stránky",
+        "intro": "Vytvářejte samostatné stránky pro svůj web.",
+        "new_page": "Nová stránka",
+        "edit_page": "Upravit stránku",
+        "page": "Stránka",
+        "url": "URL",
+        "view_page": "Zobrazit stránku",
+        "empty": "Zatím nebyly vytvořeny žádné vlastní stránky.",
+        "fields": {
+            "title": "Název",
+            "slug": "URL identifikátor",
+            "body": "Obsah"
+        },
+        "status": {
+            "draft": "Koncept",
+            "published": "Publikováno"
+        },
+        "slug_help": "Ponechte prázdné pro vytvoření z názvu. Používejte malá písmena, čísla a pomlčky.",
+        "slug_locked_help": "URL publikované stránky zůstává stejné, aby fungovaly existující odkazy.",
+        "markdown_help": "Podporován je Markdown: nadpisy, seznamy, zvýraznění, odkazy, citace a kód. HTML se pro bezpečnost zobrazí jako text.",
+        "delete_title": "Smazat stránku?",
+        "delete_confirm": "Opravdu trvale smazat „{title}“? Operaci nelze vrátit zpět.",
+        "validation": {
+            "title_required": "Zadejte název stránky.",
+            "slug_invalid": "Zadejte platný URL identifikátor.",
+            "slug_taken": "Tento URL identifikátor už existuje.",
+            "slug_locked": "URL identifikátor nelze po publikování změnit.",
+            "body_too_long": "Obsah stránky může mít maximálně 200 000 znaků.",
+            "status_invalid": "Zvolte platný stav stránky."
+        },
+        "messages": {
+            "created": "Stránka byla vytvořena.",
+            "saved": "Stránka byla uložena.",
+            "deleted": "Stránka byla smazána.",
+            "not_found": "Stránka nebyla nalezena."
+        }
+    }
+}

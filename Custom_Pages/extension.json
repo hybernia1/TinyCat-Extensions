@@ -1,0 +1,45 @@
+{
+    "schema": 1,
+    "slug": "custom_pages",
+    "name": "Custom Pages",
+    "descriptions": {
+        "cs": "Vytvářejte a publikujte vlastní stránky s bezpečným Markdown obsahem.",
+        "en": "Create and publish custom pages with safe Markdown content."
+    },
+    "homepage": "https://github.com/hybernia1/TinyCat-Extensions/tree/main/Custom_Pages",
+    "version": "1.0.0",
+    "requires": {
+        "tinycat": "2.0.3",
+        "php": "8.4.0"
+    },
+    "entry": "bootstrap.php",
+    "migrations": [
+        "migrations/20260806_001_create_custom_pages.php"
+    ],
+    "uninstall": {
+        "handler": "uninstall.php",
+        "options": [
+            {
+                "id": "keep",
+                "labels": {"cs": "Zachovat stránky", "en": "Keep pages"},
+                "descriptions": {
+                    "cs": "Odeberou se pouze soubory rozšíření. Stránky zůstanou připravené pro případnou opětovnou instalaci.",
+                    "en": "Only the extension files are removed. Pages remain ready for a future reinstall."
+                },
+                "danger": false,
+                "recommended": true
+            },
+            {
+                "id": "delete",
+                "labels": {"cs": "Smazat všechny stránky", "en": "Delete all pages"},
+                "descriptions": {
+                    "cs": "Nenávratně se smažou všechny koncepty i publikované stránky.",
+                    "en": "Permanently delete every draft and published page."
+                },
+                "danger": true,
+                "recommended": false
+            }
+        ]
+    },
+    "autoload": false
+}
