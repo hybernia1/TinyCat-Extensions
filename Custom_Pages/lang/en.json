@@ -11,7 +11,7 @@
         "fields": {
             "title": "Title",
             "slug": "URL slug",
-            "body": "Content"
+            "body": "HTML content"
         },
         "status": {
             "draft": "Draft",
@@ -19,7 +19,18 @@
         },
         "slug_help": "Leave empty to create a slug from the title. Use lowercase letters, numbers and hyphens.",
         "slug_locked_help": "Published page URLs stay fixed so existing links keep working.",
-        "markdown_help": "Markdown is supported: headings, lists, emphasis, links, quotes and code. HTML is shown as text for safety.",
+        "html_toolbar": "HTML shortcuts",
+        "html_help": "Use clean HTML. Allowed: paragraphs, h2–h6, lists, emphasis, links, quotes and code. Scripts, styles, images and custom attributes are removed when saved.",
+        "html_actions": {
+            "paragraph": "Paragraph",
+            "heading": "Heading",
+            "strong": "Bold",
+            "emphasis": "Italic",
+            "link": "Link",
+            "list": "List",
+            "quote": "Quote",
+            "code": "Code"
+        },
         "delete_title": "Delete page?",
         "delete_confirm": "Delete “{title}” permanently? This cannot be undone.",
         "validation": {

@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 use TinyCat\Extension\Registry;
+use TinyCat\Extension\Assets;
 use TinyCat\Sitemap;
 
 $tinycatRoot = realpath((string) ($argv[1] ?? getenv('TINYCAT_ROOT') ?: ''));
@@ -25,8 +26,15 @@ if (!Registry::has('custom_pages')) {
 if (Registry::requiredTables() !== ['custom_pages']) {
     throw new RuntimeException('Custom Pages registered an unexpected database contract.');
 }
+if ((CustomPages::adminNavigation()['icon'] ?? '') !== 'file') {
+    throw new RuntimeException('Custom Pages did not register its menu icon.');
+}
 if (!Sitemap::hasSection('custom_pages')) {
     throw new RuntimeException('Custom Pages did not register its sitemap section.');
+}
+$assets = Assets::forPath('/admin/custom-pages');
+if (count($assets['scripts'] ?? []) !== 1 || ($assets['styles'] ?? []) !== []) {
+    throw new RuntimeException('Custom Pages did not register its HTML editor asset.');
 }
 Registry::registerRoutes();
 $routes = (new ReflectionProperty(Core::class, 'routes'))->getValue();
@@ -40,13 +48,14 @@ if (CustomPages::normalizeSlug('A custom page!') !== 'a-custom-page') {
     throw new RuntimeException('Custom Pages did not normalize page slugs.');
 }
 
-$html = CustomPages::renderMarkdown("# Heading\n\nA **safe** [link](https://example.com) and [bad](javascript:alert(1)).\n\n<script>alert(1)</script>");
-if (!str_contains($html, '<h2>Heading</h2>')
-    || !str_contains($html, '<strong>safe</strong>')
-    || !str_contains($html, 'rel="noopener noreferrer"')
-    || str_contains($html, 'href="javascript:')
-    || !str_contains($html, '&lt;script&gt;alert(1)&lt;/script&gt;')) {
-    throw new RuntimeException('Custom Pages Markdown renderer did not preserve its safety contract.');
+$pageController = (string) file_get_contents(dirname(__DIR__) . '/Custom_Pages/Controllers/public-page.php');
+if (!str_contains($pageController, 'sanitize_html(')) {
+    throw new RuntimeException('Custom Pages does not sanitize rendered HTML.');
 }
 
-echo "PASS Custom Pages boots and renders safe Markdown.\n";
+$html = sanitize_html('<h2>Heading</h2><a href="javascript:alert(1)">bad</a><script>alert(1)</script>');
+if (!str_contains($html, '<h2>Heading</h2>') || str_contains($html, 'javascript:') || str_contains($html, 'alert(1)')) {
+    throw new RuntimeException('Custom Pages HTML safety contract failed.');
+}
+
+echo "PASS Custom Pages boots and renders safe HTML.\n";

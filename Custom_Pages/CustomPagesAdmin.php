@@ -47,14 +47,15 @@ final class CustomPagesAdmin
         $title = plain_text_limit(trim((string) post('title', '')), 180);
         $requestedSlug = trim((string) post('slug', ''));
         $slug = CustomPages::normalizeSlug($requestedSlug !== '' ? $requestedSlug : $title);
-        $body = str_replace(["\r\n", "\r"], "\n", (string) post('body_markdown', ''));
+        $bodyInput = str_replace(["\r\n", "\r"], "\n", (string) post('body_html', ''));
+        $body = sanitize_html($bodyInput);
         $status = (string) post('status', 'draft');
-        $values = ['title' => $title, 'slug' => $slug, 'body_markdown' => $body, 'status' => $status];
+        $values = ['title' => $title, 'slug' => $slug, 'body_html' => $body, 'status' => $status];
         $errors = [];
 
         if ($title === '') $errors['title'] = t('custom_pages.validation.title_required');
         if ($slug === '') $errors['slug'] = t('custom_pages.validation.slug_invalid');
-        if (strlen($body) > 200000) $errors['body_markdown'] = t('custom_pages.validation.body_too_long');
+        if (strlen($bodyInput) > 200000) $errors['body_html'] = t('custom_pages.validation.body_too_long');
         if (!in_array($status, ['draft', 'published'], true)) $errors['status'] = t('custom_pages.validation.status_invalid');
         if ($page !== null && !empty($page['published_at']) && $slug !== (string) $page['slug']) {
             $errors['slug'] = t('custom_pages.validation.slug_locked');
@@ -67,7 +68,7 @@ final class CustomPagesAdmin
         }
         if ($errors !== []) return ['values' => $values, 'errors' => $errors];
 
-        $payload = ['title' => $title, 'slug' => $slug, 'body_markdown' => $body, 'status' => $status];
+        $payload = ['title' => $title, 'slug' => $slug, 'body_html' => $body, 'status' => $status];
         if ($page === null) {
             $payload['published_at'] = $status === 'published' ? date_db() : null;
             insert('custom_pages', $payload);
@@ -87,7 +88,7 @@ final class CustomPagesAdmin
         return [
             'title' => (string) ($page['title'] ?? ''),
             'slug' => (string) ($page['slug'] ?? ''),
-            'body_markdown' => (string) ($page['body_markdown'] ?? ''),
+            'body_html' => (string) ($page['body_html'] ?? ''),
             'status' => (string) ($page['status'] ?? 'draft'),
         ];
     }

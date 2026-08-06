@@ -23,7 +23,6 @@ layout('layout', [
                 <h1 class="text-lg m-0 cluster gap-2"><?= icon('file') ?> <?= et('custom_pages.title') ?></h1>
                 <p class="text-muted mb-0"><?= et('custom_pages.intro') ?></p>
             </div>
-            <a class="btn btn-primary btn-sm" href="/admin/custom-pages/new"><?= icon('plus') ?> <span><?= et('custom_pages.new_page') ?></span></a>
         </div>
         <div class="card-body">
             <?= Registry::render('custom_pages', 'admin-list', ['pages' => $pages]) ?>
