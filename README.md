@@ -9,7 +9,7 @@ This repository is the signed source used by the Extensions screen in TinyCat ad
 - **Bots** — publishes RSS and Atom feed items through bot accounts. Its own
   uninstall flow can retain all data, convert bot accounts while preserving
   their content, or delete bot accounts and their content.
-- **Custom Pages** — lets administrators publish safe Markdown pages at
+- **Custom Pages** — lets administrators publish safe HTML pages at
   `/page/{slug}`. Draft pages stay private and published pages are included in
   the sitemap.
 

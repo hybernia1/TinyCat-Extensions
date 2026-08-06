@@ -11,7 +11,7 @@
         "fields": {
             "title": "Název",
             "slug": "URL identifikátor",
-            "body": "Obsah"
+            "body": "HTML obsah"
         },
         "status": {
             "draft": "Koncept",
@@ -19,7 +19,18 @@
         },
         "slug_help": "Ponechte prázdné pro vytvoření z názvu. Používejte malá písmena, čísla a pomlčky.",
         "slug_locked_help": "URL publikované stránky zůstává stejné, aby fungovaly existující odkazy.",
-        "markdown_help": "Podporován je Markdown: nadpisy, seznamy, zvýraznění, odkazy, citace a kód. HTML se pro bezpečnost zobrazí jako text.",
+        "html_toolbar": "HTML zkratky",
+        "html_help": "Používejte čisté HTML. Povolené jsou odstavce, h2–h6, seznamy, zvýraznění, odkazy, citace a kód. Skripty, styly, obrázky a vlastní atributy se při uložení odstraní.",
+        "html_actions": {
+            "paragraph": "Odstavec",
+            "heading": "Nadpis",
+            "strong": "Tučně",
+            "emphasis": "Kurzíva",
+            "link": "Odkaz",
+            "list": "Seznam",
+            "quote": "Citace",
+            "code": "Kód"
+        },
         "delete_title": "Smazat stránku?",
         "delete_confirm": "Opravdu trvale smazat „{title}“? Operaci nelze vrátit zpět.",
         "validation": {

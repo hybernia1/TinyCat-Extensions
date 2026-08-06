@@ -54,17 +54,19 @@ try {
         (string) ($config['password'] ?? ''),
         $options
     );
-    $migration = require dirname(__DIR__) . '/Custom_Pages/migrations/20260806_001_create_custom_pages.php';
+    $migrationOne = require dirname(__DIR__) . '/Custom_Pages/migrations/20260806_001_create_custom_pages.php';
+    $migrationTwo = require dirname(__DIR__) . '/Custom_Pages/migrations/20260806_002_convert_page_body_to_html.php';
     $uninstall = require dirname(__DIR__) . '/Custom_Pages/uninstall.php';
 
-    $prepare = static function () use ($database, $migration): void {
+    $prepare = static function () use ($database, $migrationOne, $migrationTwo): void {
         $database->exec('DROP TABLE IF EXISTS custom_pages');
-        $migration($database);
+        $migrationOne($database);
         $database->exec(
             "INSERT INTO custom_pages (slug, title, body_markdown, status, published_at) VALUES
                 ('draft-page', 'Draft page', 'Draft body', 'draft', NULL),
                 ('published-page', 'Published page', 'Published body', 'published', NOW())"
         );
+        $migrationTwo($database);
     };
     $tableExists = static function () use ($database): bool {
         return (int) $database->query(
@@ -73,6 +75,9 @@ try {
     };
 
     $prepare();
+    $columns = $database->query('SHOW COLUMNS FROM custom_pages')->fetchAll(PDO::FETCH_COLUMN);
+    $expect(in_array('body_html', $columns, true) && !in_array('body_markdown', $columns, true), 'Page body migration did not complete.');
+    $expect((string) $database->query("SELECT body_html FROM custom_pages WHERE slug = 'draft-page'")->fetchColumn() === '<p>Draft body</p>', 'Page body migration did not preserve content.');
     $result = $uninstall($database, ['mode' => 'keep']);
     $expect($result['data_removed'] === false, 'Keep mode reported removed data.');
     $expect($tableExists(), 'Keep mode removed the custom pages table.');

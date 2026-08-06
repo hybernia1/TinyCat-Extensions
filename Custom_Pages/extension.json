@@ -3,18 +3,19 @@
     "slug": "custom_pages",
     "name": "Custom Pages",
     "descriptions": {
-        "cs": "Vytvářejte a publikujte vlastní stránky s bezpečným Markdown obsahem.",
-        "en": "Create and publish custom pages with safe Markdown content."
+        "cs": "Vytvářejte a publikujte vlastní stránky s bezpečným HTML obsahem.",
+        "en": "Create and publish custom pages with safe HTML content."
     },
     "homepage": "https://github.com/hybernia1/TinyCat-Extensions/tree/main/Custom_Pages",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "requires": {
-        "tinycat": "2.0.3",
+        "tinycat": "2.0.17",
         "php": "8.4.0"
     },
     "entry": "bootstrap.php",
     "migrations": [
-        "migrations/20260806_001_create_custom_pages.php"
+        "migrations/20260806_001_create_custom_pages.php",
+        "migrations/20260806_002_convert_page_body_to_html.php"
     ],
     "uninstall": {
         "handler": "uninstall.php",

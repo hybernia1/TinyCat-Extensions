@@ -27,9 +27,19 @@ $slugLocked = !empty($page['published_at']);
     </div>
     <div class="field">
         <label class="label" for="custom-page-body"><?= et('custom_pages.fields.body') ?></label>
-        <textarea class="textarea" id="custom-page-body" name="body_markdown" rows="18" maxlength="200000" spellcheck="true"><?= e((string) ($values['body_markdown'] ?? '')) ?></textarea>
-        <p class="help"><?= et('custom_pages.markdown_help') ?></p>
-        <?php if (!empty($errors['body_markdown'])): ?><p class="field-error"><?= e((string) $errors['body_markdown']) ?></p><?php endif; ?>
+        <div class="cluster gap-2 mb-2" data-html-editor data-html-editor-target="custom-page-body" aria-label="<?= et('custom_pages.html_toolbar') ?>">
+            <button class="btn btn-secondary btn-sm" type="button" data-html-editor-action="paragraph"><?= et('custom_pages.html_actions.paragraph') ?></button>
+            <button class="btn btn-secondary btn-sm" type="button" data-html-editor-action="heading"><?= et('custom_pages.html_actions.heading') ?></button>
+            <button class="btn btn-secondary btn-sm" type="button" data-html-editor-action="strong"><?= et('custom_pages.html_actions.strong') ?></button>
+            <button class="btn btn-secondary btn-sm" type="button" data-html-editor-action="emphasis"><?= et('custom_pages.html_actions.emphasis') ?></button>
+            <button class="btn btn-secondary btn-sm" type="button" data-html-editor-action="link"><?= et('custom_pages.html_actions.link') ?></button>
+            <button class="btn btn-secondary btn-sm" type="button" data-html-editor-action="list"><?= et('custom_pages.html_actions.list') ?></button>
+            <button class="btn btn-secondary btn-sm" type="button" data-html-editor-action="quote"><?= et('custom_pages.html_actions.quote') ?></button>
+            <button class="btn btn-secondary btn-sm" type="button" data-html-editor-action="code"><?= et('custom_pages.html_actions.code') ?></button>
+        </div>
+        <textarea class="textarea" id="custom-page-body" name="body_html" rows="18" maxlength="200000" spellcheck="true" data-html-editor-input><?= e((string) ($values['body_html'] ?? '')) ?></textarea>
+        <p class="help"><?= et('custom_pages.html_help') ?></p>
+        <?php if (!empty($errors['body_html'])): ?><p class="field-error"><?= e((string) $errors['body_html']) ?></p><?php endif; ?>
     </div>
     <div class="field">
         <label class="label" for="custom-page-status"><?= et('common.status') ?></label>

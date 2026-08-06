@@ -31,7 +31,7 @@ layout('layout', [
                 <?php endif; ?>
             </header>
             <div class="custom-page-content">
-                <?= CustomPages::renderMarkdown((string) $page['body_markdown']) ?>
+                <?= sanitize_html((string) $page['body_html']) ?>
             </div>
         </div>
     </article>
