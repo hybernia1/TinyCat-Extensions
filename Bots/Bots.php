@@ -10,6 +10,17 @@ if (!defined('TINYCAT')) {
 
 final class Bots
 {
+    private const FEED_HISTORY_KEEP = 100;
+    private const CLEANUP_INTERVAL = 3600;
+    private const CLEANUP_BATCH = 1000;
+    private const CURRENT_RUN_RETENTION_DAYS = 2;
+    private const RUN_RETENTION_DAYS = 14;
+    private const ORPHAN_HISTORY_RETENTION_DAYS = 14;
+    private const CURRENT_RUNS_PER_SOURCE_KEEP = 250;
+
+    private static ?bool $compactFeedItems = null;
+    private static ?bool $compactFeedHistory = null;
+
     private function __construct()
     {
     }
@@ -114,6 +125,7 @@ final class Bots
     {
         $limit = max(1, min(100, (int) ($context['options']['bot_limit'] ?? 20)));
         $results = self::runDueSources($limit);
+        $cleanup = self::cleanupDatabase();
         $summary = [];
 
         foreach ($results as $result) {
@@ -128,6 +140,7 @@ final class Bots
             'count' => count($results),
             'summary' => $summary,
             'results' => $results,
+            'cleanup' => $cleanup,
         ];
     }
 
@@ -187,44 +200,85 @@ final class Bots
             && (int) ($exception->errorInfo[1] ?? 0) === 1062;
     }
 
-    private static function feedHistoryHas(int $botUserId, string $feedUrl, string $itemGuid): bool
+    private static function feedItemHashes(int $sourceId, array $itemHashes): array
     {
-        $feedHash = self::feedSourceHash($feedUrl);
-        $itemHash = $itemGuid !== '' ? hash('sha256', $itemGuid) : '';
+        $itemHashes = array_values(array_unique(array_filter($itemHashes, static fn (mixed $hash): bool => preg_match('/^[a-f0-9]{64}$/', (string) $hash) === 1)));
+        if ($sourceId < 1 || $itemHashes === []) {
+            return [];
+        }
 
-        return $botUserId > 0
-            && $feedHash !== ''
-            && $itemHash !== ''
-            && (int) val(
-                'SELECT COUNT(*) FROM bot_feed_history WHERE bot_user_id = ? AND feed_hash = ? AND item_hash = ?',
-                [$botUserId, $feedHash, $itemHash]
-            ) > 0;
+        $placeholders = implode(', ', array_fill(0, count($itemHashes), '?'));
+        $rows = all(
+            'SELECT item_hash FROM bot_feed_items WHERE source_id = ? AND item_hash IN (' . $placeholders . ')',
+            array_merge([$sourceId], $itemHashes)
+        );
+
+        return array_fill_keys(array_column($rows, 'item_hash'), true);
+    }
+
+    private static function feedHistoryHashes(int $botUserId, string $feedHash, array $itemHashes): array
+    {
+        $itemHashes = array_values(array_unique(array_filter($itemHashes, static fn (mixed $hash): bool => preg_match('/^[a-f0-9]{64}$/', (string) $hash) === 1)));
+        if ($botUserId < 1 || !preg_match('/^[a-f0-9]{64}$/', $feedHash) || $itemHashes === []) {
+            return [];
+        }
+
+        $placeholders = implode(', ', array_fill(0, count($itemHashes), '?'));
+        $rows = all(
+            'SELECT item_hash
+             FROM bot_feed_history
+             WHERE bot_user_id = ? AND feed_hash = ? AND item_hash IN (' . $placeholders . ')',
+            array_merge([$botUserId, $feedHash], $itemHashes)
+        );
+
+        return array_fill_keys(array_column($rows, 'item_hash'), true);
+    }
+
+    private static function hasCompactFeedItems(): bool
+    {
+        return self::$compactFeedItems ??= (int) val(
+            'SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?',
+            ['bot_feed_items', 'item_guid']
+        ) === 0;
+    }
+
+    private static function hasCompactFeedHistory(): bool
+    {
+        return self::$compactFeedHistory ??= (int) val(
+            'SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?',
+            ['bot_feed_history', 'item_guid']
+        ) === 0;
     }
 
     private static function recordFeedHistory(
         int $botUserId,
-        string $feedUrl,
-        string $itemGuid,
-        int $contentId,
+        string $feedHash,
+        string $itemHash,
+        string $itemGuid = '',
+        int $contentId = 0,
         string $publishedAt = '',
         string $createdAt = ''
-    ): void {
-        $feedHash = self::feedSourceHash($feedUrl);
-        $itemHash = $itemGuid !== '' ? hash('sha256', $itemGuid) : '';
+    ): void
+    {
         if ($botUserId < 1 || $feedHash === '' || $itemHash === '') {
             return;
         }
 
         try {
-            insert('bot_feed_history', [
+            $data = [
                 'bot_user_id' => $botUserId,
                 'feed_hash' => $feedHash,
                 'item_hash' => $itemHash,
-                'content_id' => $contentId > 0 ? $contentId : null,
-                'item_guid' => $itemGuid,
-                'item_published_at' => $publishedAt !== '' ? $publishedAt : null,
                 'created_at' => $createdAt !== '' ? $createdAt : date_db(),
-            ]);
+            ];
+            if (!self::hasCompactFeedHistory()) {
+                $data += [
+                    'content_id' => $contentId > 0 ? $contentId : null,
+                    'item_guid' => $itemGuid,
+                    'item_published_at' => $publishedAt !== '' ? $publishedAt : null,
+                ];
+            }
+            insert('bot_feed_history', $data);
         } catch (Throwable) {
             // The global history key is intentionally immutable and race-safe.
         }
@@ -232,7 +286,7 @@ final class Bots
         self::pruneFeedHistory($botUserId, $feedHash);
     }
 
-    private static function pruneFeedHistory(int $botUserId, string $feedHash, int $keep = 100): void
+    private static function pruneFeedHistory(int $botUserId, string $feedHash, int $keep = self::FEED_HISTORY_KEEP): void
     {
         if ($botUserId < 1 || !preg_match('/^[a-f0-9]{64}$/', $feedHash)) {
             return;
@@ -247,12 +301,102 @@ final class Bots
                             SELECT item_hash
                             FROM bot_feed_history
                             WHERE bot_user_id = ? AND feed_hash = ?
-                            ORDER BY COALESCE(item_published_at, created_at) DESC, created_at DESC, item_hash DESC
+                            ORDER BY created_at DESC, item_hash DESC
                             LIMIT ' . $keep . '
                         ) recent_items
                     )',
             [$botUserId, $feedHash, $botUserId, $feedHash]
         );
+    }
+
+    private static function cleanupDatabase(): array
+    {
+        $now = time();
+        $lastRun = max(0, (int) setting('bots.cleanup_last_run', 0));
+        if ($lastRun > $now - self::CLEANUP_INTERVAL) {
+            return ['due' => false, 'changed' => 0, 'has_more' => false];
+        }
+
+        $batch = self::CLEANUP_BATCH;
+        $currentBefore = date('Y-m-d H:i:s', $now - self::CURRENT_RUN_RETENTION_DAYS * 86400);
+        $runsBefore = date('Y-m-d H:i:s', $now - self::RUN_RETENTION_DAYS * 86400);
+        $historyBefore = date('Y-m-d H:i:s', $now - self::ORPHAN_HISTORY_RETENTION_DAYS * 86400);
+        $results = [];
+
+        try {
+            $results['current_runs'] = run(
+                'DELETE FROM bot_source_runs WHERE status = ? AND started_at < ? LIMIT ' . $batch,
+                ['current', $currentBefore]
+            );
+            $results['old_runs'] = run(
+                'DELETE FROM bot_source_runs WHERE started_at < ? LIMIT ' . $batch,
+                [$runsBefore]
+            );
+            $results['orphan_history'] = run(
+                'DELETE FROM bot_feed_history
+                 WHERE created_at < ?
+                    AND NOT EXISTS (
+                        SELECT 1 FROM bot_sources
+                        WHERE bot_sources.bot_user_id = bot_feed_history.bot_user_id
+                            AND bot_sources.feed_hash = bot_feed_history.feed_hash
+                    )
+                 LIMIT ' . $batch,
+                [$historyBefore]
+            );
+            $results['current_run_cap'] = self::pruneCurrentRunsPerSource($batch);
+        } catch (Throwable $exception) {
+            return [
+                'due' => true,
+                'changed' => array_sum($results),
+                'has_more' => false,
+                'error' => $exception->getMessage(),
+            ];
+        }
+
+        $changed = array_sum($results);
+        $hasMore = array_any($results, static fn (int $count): bool => $count >= $batch);
+        if (!$hasMore) {
+            setting_set('bots.cleanup_last_run', $now, 'int', 'bots');
+        }
+
+        return [
+            'due' => true,
+            'changed' => $changed,
+            'has_more' => $hasMore,
+            'results' => $results,
+        ];
+    }
+
+    private static function pruneCurrentRunsPerSource(int $batch): int
+    {
+        $changed = 0;
+        $keep = self::CURRENT_RUNS_PER_SOURCE_KEEP;
+
+        foreach (all('SELECT id FROM bot_sources ORDER BY id ASC') as $source) {
+            $sourceId = (int) ($source['id'] ?? 0);
+            if ($sourceId < 1 || $changed >= $batch) {
+                break;
+            }
+
+            $remaining = max(1, $batch - $changed);
+            $changed += run(
+                'DELETE FROM bot_source_runs
+                 WHERE source_id = ? AND status = ?
+                    AND id NOT IN (
+                        SELECT id FROM (
+                            SELECT id
+                            FROM bot_source_runs
+                            WHERE source_id = ? AND status = ?
+                            ORDER BY started_at DESC, id DESC
+                            LIMIT ' . $keep . '
+                        ) retained_runs
+                    )
+                 LIMIT ' . $remaining,
+                [$sourceId, 'current', $sourceId, 'current']
+            );
+        }
+
+        return $changed;
     }
 
     public static function defaultSourceTemplate(): string
@@ -641,13 +785,15 @@ final class Bots
                 throw new RuntimeException('RSS feed contains no usable items.');
             }
 
+            $feedHash = self::feedSourceHash($feedUrl);
+            $itemHashes = array_map(static fn (array $item): string => hash('sha256', (string) ($item['guid'] ?? '')), $items);
+            $sourceItemHashes = self::feedItemHashes($sourceId, $itemHashes);
+            $historyItemHashes = self::feedHistoryHashes($botUserId, $feedHash, $itemHashes);
+
             foreach ($items as $item) {
                 $itemGuid = (string) ($item['guid'] ?? '');
                 $hash = hash('sha256', $itemGuid);
-                if (
-                    (int) val('SELECT COUNT(*) FROM bot_feed_items WHERE source_id = ? AND item_hash = ?', [$sourceId, $hash]) > 0
-                    || self::feedHistoryHas($botUserId, $feedUrl, $itemGuid)
-                ) {
+                if (isset($sourceItemHashes[$hash]) || isset($historyItemHashes[$hash])) {
                     continue;
                 }
 
@@ -671,22 +817,30 @@ final class Bots
                     (string) ($feedLink['url_hash'] ?? ''),
                     (string) ($item['image_url'] ?? '')
                 );
-                insert('bot_feed_items', [
+                $feedItem = [
                     'source_id' => $sourceId,
                     'item_hash' => $hash,
-                    'content_id' => $contentId,
-                    'item_guid' => (string) ($item['guid'] ?? ''),
-                    'item_published_at' => $item['published_at'] ?? null,
-                    'created_at' => $publishedAt,
-                ]);
+                ];
+                if (!self::hasCompactFeedItems()) {
+                    $feedItem += [
+                        'content_id' => $contentId,
+                        'item_guid' => $itemGuid,
+                        'item_published_at' => $item['published_at'] ?? null,
+                        'created_at' => $publishedAt,
+                    ];
+                }
+                insert('bot_feed_items', $feedItem);
                 self::recordFeedHistory(
                     $botUserId,
-                    $feedUrl,
+                    $feedHash,
+                    $hash,
                     $itemGuid,
                     $contentId,
                     (string) ($item['published_at'] ?? ''),
                     $publishedAt
                 );
+                $sourceItemHashes[$hash] = true;
+                $historyItemHashes[$hash] = true;
                 update('bot_sources', ['last_imported_at' => $publishedAt], ['id' => $sourceId]);
                 self::finishSourceRun($runId, 'posted', $itemsSeen, 1, $contentId, $httpStatus);
 
