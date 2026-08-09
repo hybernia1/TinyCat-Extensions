@@ -1,9 +1,8 @@
 {
     "install": {
         "purpose_bot_sources": "Pravidla publikování RSS a Atom zdrojů pro bot účty.",
-        "purpose_bot_feed_items": "Importovaná GUID feedů zabraňující duplicitním příspěvkům botů.",
-        "purpose_bot_feed_history": "Omezená historie posledních importů bránící duplicitám po opětovném přidání zdroje.",
-        "purpose_bot_source_runs": "Provozní historie kontrol a importů botích zdrojů."
+        "purpose_bot_feed_history": "Poslední hashe položek feedu zabraňující duplicitním příspěvkům botů.",
+        "purpose_bot_source_runs": "Úsporná diagnostická historie kontrol a importů botích zdrojů."
     },
     "users": {
         "roles": {

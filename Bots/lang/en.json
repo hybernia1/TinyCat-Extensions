@@ -1,9 +1,8 @@
 {
     "install": {
         "purpose_bot_sources": "RSS and Atom publishing rules for bot accounts.",
-        "purpose_bot_feed_items": "Imported feed GUIDs used to prevent duplicate bot posts.",
-        "purpose_bot_feed_history": "Bounded recent import history preventing duplicates after a source is added again.",
-        "purpose_bot_source_runs": "Operational history of bot source checks and imports."
+        "purpose_bot_feed_history": "Recent feed item hashes used to prevent duplicate bot posts.",
+        "purpose_bot_source_runs": "Compact diagnostic history of bot source checks and imports."
     },
     "users": {
         "roles": {

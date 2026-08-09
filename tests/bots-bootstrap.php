@@ -24,7 +24,7 @@ require dirname(__DIR__) . DIRECTORY_SEPARATOR . 'Bots' . DIRECTORY_SEPARATOR . 
 if (!Registry::has('bots')) {
     throw new RuntimeException('Bots did not register through TinyCat\\Extension\\Registry.');
 }
-if (Registry::requiredTables() !== ['bot_sources', 'bot_feed_items', 'bot_feed_history', 'bot_source_runs']) {
+if (Registry::requiredTables() !== ['bot_sources', 'bot_feed_history', 'bot_source_runs']) {
     throw new RuntimeException('Bots registered an unexpected database contract.');
 }
 if (UserRoles::allowsLogin('bot') || UserRoles::profileSchemaType('bot') !== 'Organization') {

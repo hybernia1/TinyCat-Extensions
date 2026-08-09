@@ -61,11 +61,37 @@ try {
 
     $install = require dirname(__DIR__) . '/Bots/migrations/20260805_001_install_bots.php';
     $compact = require dirname(__DIR__) . '/Bots/migrations/20260807_001_compact_bot_history.php';
+    $consolidate = require dirname(__DIR__) . '/Bots/migrations/20260810_001_consolidate_bot_storage.php';
     $install($database);
+    // Recreate the 1.3.x storage shape so this test exercises an in-place upgrade.
+    $database->exec("CREATE TABLE bot_feed_items (
+        source_id BIGINT UNSIGNED NOT NULL,
+        item_hash CHAR(64) NOT NULL,
+        content_id BIGINT UNSIGNED NULL,
+        item_guid VARCHAR(2048) NOT NULL,
+        item_published_at DATETIME NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (source_id, item_hash),
+        KEY bot_feed_items_content_index (content_id),
+        KEY bot_feed_items_created_index (created_at),
+        CONSTRAINT fk_bot_feed_items_source FOREIGN KEY (source_id) REFERENCES bot_sources (id) ON DELETE CASCADE,
+        CONSTRAINT fk_bot_feed_items_content FOREIGN KEY (content_id) REFERENCES content (id) ON DELETE SET NULL
+    ) ENGINE=InnoDB");
+    $database->exec("ALTER TABLE bot_sources ADD updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP");
+    $database->exec("ALTER TABLE bot_source_runs
+        ADD bot_user_id INT UNSIGNED NOT NULL AFTER source_id,
+        ADD finished_at DATETIME NULL AFTER started_at,
+        ADD items_imported INT UNSIGNED NOT NULL DEFAULT 0 AFTER items_seen,
+        ADD content_id BIGINT UNSIGNED NULL AFTER items_imported,
+        ADD http_status SMALLINT UNSIGNED NULL AFTER content_id,
+        ADD created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP AFTER error,
+        ADD KEY bot_source_runs_bot_index (bot_user_id, started_at),
+        ADD CONSTRAINT fk_bot_source_runs_user FOREIGN KEY (bot_user_id) REFERENCES users (id) ON DELETE CASCADE,
+        ADD CONSTRAINT fk_bot_source_runs_content FOREIGN KEY (content_id) REFERENCES content (id) ON DELETE SET NULL");
 
     $activeHash = hash('sha256', 'https://example.test/feed');
     $orphanHash = hash('sha256', 'https://example.test/removed-feed');
-    $itemHash = hash('sha256', 'item-1');
+    $itemHash = str_repeat('f', 64);
     $database->prepare('INSERT INTO bot_sources (id, bot_user_id, name, feed_url, feed_hash, post_template) VALUES (1, 2, ?, ?, ?, ?)')->execute([
         'Example',
         'https://example.test/feed',
@@ -73,6 +99,10 @@ try {
         '{{title}}',
     ]);
     $database->prepare('INSERT INTO bot_feed_items (source_id, item_hash, content_id, item_guid, item_published_at, created_at) VALUES (1, ?, 10, ?, NOW(), NOW())')->execute([$itemHash, str_repeat('g', 1800)]);
+    $insertItem = $database->prepare('INSERT INTO bot_feed_items (source_id, item_hash, content_id, item_guid, item_published_at, created_at) VALUES (1, ?, 10, ?, NOW(), NOW())');
+    for ($index = 0; $index < 550; $index++) {
+        $insertItem->execute([hash('sha256', 'source-item-' . $index), 'source-item-' . $index]);
+    }
     $database->prepare('INSERT INTO bot_feed_history (bot_user_id, feed_hash, item_hash, content_id, item_guid, item_published_at, created_at) VALUES (2, ?, ?, 10, ?, NOW(), DATE_SUB(NOW(), INTERVAL 30 DAY))')->execute([$activeHash, $itemHash, str_repeat('g', 1800)]);
     $database->prepare('INSERT INTO bot_feed_history (bot_user_id, feed_hash, item_hash, content_id, item_guid, item_published_at, created_at) VALUES (2, ?, ?, 10, ?, NOW(), DATE_SUB(NOW(), INTERVAL 30 DAY))')->execute([$orphanHash, hash('sha256', 'removed-item'), str_repeat('g', 1800)]);
     $insertHistory = $database->prepare('INSERT INTO bot_feed_history (bot_user_id, feed_hash, item_hash, content_id, item_guid, item_published_at, created_at) VALUES (2, ?, ?, 10, ?, NOW(), ?)');
@@ -99,14 +129,28 @@ try {
     };
     $expect($columns('bot_feed_items') === ['source_id', 'item_hash'], 'Feed item history was not compacted to hash keys.');
     $expect($columns('bot_feed_history') === ['bot_user_id', 'feed_hash', 'item_hash', 'created_at'], 'Global feed history was not compacted.');
-    $expect((int) $database->query('SELECT COUNT(*) FROM bot_feed_items')->fetchColumn() === 1, 'Feed item keys were not preserved.');
+    $expect((int) $database->query('SELECT COUNT(*) FROM bot_feed_items')->fetchColumn() === 551, 'Feed item keys were not preserved.');
     $expect((int) $database->query('SELECT COUNT(*) FROM bot_feed_history')->fetchColumn() === 100, 'Active feed history was not capped or orphan history was retained.');
     $expect((int) $database->query("SELECT COUNT(*) FROM bot_source_runs WHERE status = 'current'")->fetchColumn() === 250, 'Current run history was not capped.');
     $expect((int) $database->query("SELECT COUNT(*) FROM bot_source_runs WHERE status = 'error'")->fetchColumn() === 0, 'Old diagnostic runs were retained.');
     $indexes = array_column($database->query('SHOW INDEX FROM bot_source_runs')->fetchAll(), 'Key_name');
     $expect(in_array('bot_source_runs_started_index', $indexes, true), 'Run timestamp index was not created.');
 
-    echo "PASS Bots history migration compacts storage and prunes obsolete history.\n";
+    $consolidate($database);
+
+    $tables = array_column($database->query("SHOW TABLES LIKE 'bot_feed_items'")->fetchAll(), 0);
+    $expect($tables === [], 'Redundant per-source feed item table was retained.');
+    $expect((int) $database->query('SELECT COUNT(*) FROM bot_feed_history')->fetchColumn() === 500, 'Feed item keys were not consolidated into bounded history.');
+    $migratedItem = $database->prepare('SELECT COUNT(*) FROM bot_feed_history WHERE bot_user_id = 2 AND feed_hash = ? AND item_hash = ?');
+    $migratedItem->execute([$activeHash, $itemHash]);
+    $expect((int) $migratedItem->fetchColumn() === 1, 'Migrated feed item key was not retained.');
+    $expect($columns('bot_source_runs') === ['id', 'source_id', 'status', 'started_at', 'items_seen', 'error'], 'Run history was not compacted.');
+    $expect(!in_array('updated_at', $columns('bot_sources'), true), 'Unused source update timestamp was retained.');
+    $expect((int) $database->query("SELECT COUNT(*) FROM bot_source_runs WHERE status <> 'error'")->fetchColumn() === 50, 'Successful run history was not capped.');
+    $indexes = array_column($database->query('SHOW INDEX FROM bot_source_runs')->fetchAll(), 'Key_name');
+    $expect(!in_array('bot_source_runs_bot_index', $indexes, true), 'Redundant bot run index was retained.');
+
+    echo "PASS Bots history migrations consolidate storage and prune obsolete history.\n";
 } finally {
     if ($created) {
         $server->exec('DROP DATABASE IF EXISTS `' . $databaseName . '`');

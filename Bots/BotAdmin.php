@@ -138,7 +138,7 @@ final class BotAdmin
             'SELECT br.*, bs.name AS source_name
              FROM bot_source_runs br
              INNER JOIN bot_sources bs ON bs.id = br.source_id
-             WHERE br.bot_user_id = ?
+             WHERE bs.bot_user_id = ?
              ORDER BY br.started_at DESC, br.id DESC
              LIMIT ' . max(1, min(100, $limit)),
             [$id]
