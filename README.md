@@ -35,6 +35,7 @@ checkout:
 
 ```shell
 php tests/bots-bootstrap.php /path/to/tinycat
+php tests/bots-tags.php /path/to/tinycat
 php tests/bots-uninstall.php /path/to/tinycat
 php tests/bots-history-migration.php /path/to/tinycat
 php tests/custom-pages-bootstrap.php /path/to/tinycat

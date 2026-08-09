@@ -715,10 +715,6 @@ final class Bots
             if ($tag !== '') {
                 $tags[$tag] = '#' . $tag;
             }
-
-            if (count($tags) >= status_tag_max_count()) {
-                break;
-            }
         }
 
         return implode(' ', array_values($tags));
