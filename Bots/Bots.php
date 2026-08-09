@@ -10,16 +10,12 @@ if (!defined('TINYCAT')) {
 
 final class Bots
 {
-    private const FEED_HISTORY_KEEP = 100;
+    private const FEED_HISTORY_KEEP = 500;
     private const CLEANUP_INTERVAL = 3600;
     private const CLEANUP_BATCH = 1000;
-    private const CURRENT_RUN_RETENTION_DAYS = 2;
-    private const RUN_RETENTION_DAYS = 14;
+    private const ERROR_RUN_RETENTION_DAYS = 14;
     private const ORPHAN_HISTORY_RETENTION_DAYS = 14;
-    private const CURRENT_RUNS_PER_SOURCE_KEEP = 250;
-
-    private static ?bool $compactFeedItems = null;
-    private static ?bool $compactFeedHistory = null;
+    private const SUCCESSFUL_RUNS_PER_SOURCE_KEEP = 50;
 
     private function __construct()
     {
@@ -64,7 +60,6 @@ final class Bots
     {
         return [
             'bot_sources',
-            'bot_feed_items',
             'bot_feed_history',
             'bot_source_runs',
         ];
@@ -200,22 +195,6 @@ final class Bots
             && (int) ($exception->errorInfo[1] ?? 0) === 1062;
     }
 
-    private static function feedItemHashes(int $sourceId, array $itemHashes): array
-    {
-        $itemHashes = array_values(array_unique(array_filter($itemHashes, static fn (mixed $hash): bool => preg_match('/^[a-f0-9]{64}$/', (string) $hash) === 1)));
-        if ($sourceId < 1 || $itemHashes === []) {
-            return [];
-        }
-
-        $placeholders = implode(', ', array_fill(0, count($itemHashes), '?'));
-        $rows = all(
-            'SELECT item_hash FROM bot_feed_items WHERE source_id = ? AND item_hash IN (' . $placeholders . ')',
-            array_merge([$sourceId], $itemHashes)
-        );
-
-        return array_fill_keys(array_column($rows, 'item_hash'), true);
-    }
-
     private static function feedHistoryHashes(int $botUserId, string $feedHash, array $itemHashes): array
     {
         $itemHashes = array_values(array_unique(array_filter($itemHashes, static fn (mixed $hash): bool => preg_match('/^[a-f0-9]{64}$/', (string) $hash) === 1)));
@@ -234,29 +213,10 @@ final class Bots
         return array_fill_keys(array_column($rows, 'item_hash'), true);
     }
 
-    private static function hasCompactFeedItems(): bool
-    {
-        return self::$compactFeedItems ??= (int) val(
-            'SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?',
-            ['bot_feed_items', 'item_guid']
-        ) === 0;
-    }
-
-    private static function hasCompactFeedHistory(): bool
-    {
-        return self::$compactFeedHistory ??= (int) val(
-            'SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?',
-            ['bot_feed_history', 'item_guid']
-        ) === 0;
-    }
-
     private static function recordFeedHistory(
         int $botUserId,
         string $feedHash,
         string $itemHash,
-        string $itemGuid = '',
-        int $contentId = 0,
-        string $publishedAt = '',
         string $createdAt = ''
     ): void
     {
@@ -271,13 +231,6 @@ final class Bots
                 'item_hash' => $itemHash,
                 'created_at' => $createdAt !== '' ? $createdAt : date_db(),
             ];
-            if (!self::hasCompactFeedHistory()) {
-                $data += [
-                    'content_id' => $contentId > 0 ? $contentId : null,
-                    'item_guid' => $itemGuid,
-                    'item_published_at' => $publishedAt !== '' ? $publishedAt : null,
-                ];
-            }
             insert('bot_feed_history', $data);
         } catch (Throwable) {
             // The global history key is intentionally immutable and race-safe.
@@ -292,7 +245,7 @@ final class Bots
             return;
         }
 
-        $keep = max(10, min(500, $keep));
+        $keep = max(10, min(1000, $keep));
         run(
             'DELETE FROM bot_feed_history
                 WHERE bot_user_id = ? AND feed_hash = ?
@@ -318,19 +271,14 @@ final class Bots
         }
 
         $batch = self::CLEANUP_BATCH;
-        $currentBefore = date('Y-m-d H:i:s', $now - self::CURRENT_RUN_RETENTION_DAYS * 86400);
-        $runsBefore = date('Y-m-d H:i:s', $now - self::RUN_RETENTION_DAYS * 86400);
+        $errorsBefore = date('Y-m-d H:i:s', $now - self::ERROR_RUN_RETENTION_DAYS * 86400);
         $historyBefore = date('Y-m-d H:i:s', $now - self::ORPHAN_HISTORY_RETENTION_DAYS * 86400);
         $results = [];
 
         try {
-            $results['current_runs'] = run(
+            $results['old_errors'] = run(
                 'DELETE FROM bot_source_runs WHERE status = ? AND started_at < ? LIMIT ' . $batch,
-                ['current', $currentBefore]
-            );
-            $results['old_runs'] = run(
-                'DELETE FROM bot_source_runs WHERE started_at < ? LIMIT ' . $batch,
-                [$runsBefore]
+                ['error', $errorsBefore]
             );
             $results['orphan_history'] = run(
                 'DELETE FROM bot_feed_history
@@ -343,7 +291,7 @@ final class Bots
                  LIMIT ' . $batch,
                 [$historyBefore]
             );
-            $results['current_run_cap'] = self::pruneCurrentRunsPerSource($batch);
+            $results['successful_run_cap'] = self::pruneSuccessfulRunsPerSource($batch);
         } catch (Throwable $exception) {
             return [
                 'due' => true,
@@ -367,10 +315,10 @@ final class Bots
         ];
     }
 
-    private static function pruneCurrentRunsPerSource(int $batch): int
+    private static function pruneSuccessfulRunsPerSource(int $batch): int
     {
         $changed = 0;
-        $keep = self::CURRENT_RUNS_PER_SOURCE_KEEP;
+        $keep = self::SUCCESSFUL_RUNS_PER_SOURCE_KEEP;
 
         foreach (all('SELECT id FROM bot_sources ORDER BY id ASC') as $source) {
             $sourceId = (int) ($source['id'] ?? 0);
@@ -381,18 +329,18 @@ final class Bots
             $remaining = max(1, $batch - $changed);
             $changed += run(
                 'DELETE FROM bot_source_runs
-                 WHERE source_id = ? AND status = ?
+                 WHERE source_id = ? AND status <> ?
                     AND id NOT IN (
                         SELECT id FROM (
                             SELECT id
                             FROM bot_source_runs
-                            WHERE source_id = ? AND status = ?
+                            WHERE source_id = ? AND status <> ?
                             ORDER BY started_at DESC, id DESC
                             LIMIT ' . $keep . '
                         ) retained_runs
                     )
                  LIMIT ' . $remaining,
-                [$sourceId, 'current', $sourceId, 'current']
+                [$sourceId, 'error', $sourceId, 'error']
             );
         }
 
@@ -449,16 +397,15 @@ final class Bots
         ];
     }
 
-    private static function createSourceRun(int $sourceId, int $botUserId): int
+    private static function createSourceRun(int $sourceId): int
     {
-        if ($sourceId < 1 || $botUserId < 1) {
+        if ($sourceId < 1) {
             return 0;
         }
 
         try {
             return (int) insert('bot_source_runs', [
                 'source_id' => $sourceId,
-                'bot_user_id' => $botUserId,
                 'status' => 'running',
                 'started_at' => date_db(),
             ]);
@@ -467,7 +414,7 @@ final class Bots
         }
     }
 
-    private static function finishSourceRun(int $runId, string $status, int $itemsSeen = 0, int $itemsImported = 0, int $contentId = 0, ?int $httpStatus = null, string $error = ''): void
+    private static function finishSourceRun(int $runId, string $status, int $itemsSeen = 0, string $error = ''): void
     {
         if ($runId < 1) {
             return;
@@ -476,11 +423,7 @@ final class Bots
         try {
             update('bot_source_runs', [
                 'status' => $status,
-                'finished_at' => date_db(),
                 'items_seen' => max(0, $itemsSeen),
-                'items_imported' => max(0, $itemsImported),
-                'content_id' => $contentId > 0 ? $contentId : null,
-                'http_status' => $httpStatus !== null && $httpStatus > 0 ? $httpStatus : null,
                 'error' => $error !== '' ? self::feedText($error, 500) : null,
             ], ['id' => $runId]);
         } catch (Throwable) {
@@ -496,7 +439,6 @@ final class Bots
 
         db_transaction(static function () use ($sourceId): void {
             delete('bot_source_runs', ['source_id' => $sourceId]);
-            delete('bot_feed_items', ['source_id' => $sourceId]);
             delete('bot_sources', ['id' => $sourceId]);
         });
     }
@@ -764,9 +706,8 @@ final class Bots
             return ['source_id' => $sourceId, 'status' => 'skipped'];
         }
 
-        $runId = self::createSourceRun($sourceId, $botUserId);
+        $runId = self::createSourceRun($sourceId);
         $itemsSeen = 0;
-        $httpStatus = null;
 
         try {
             $response = LinkMetadata::fetchDocument((string) ($source['feed_url'] ?? ''));
@@ -774,7 +715,6 @@ final class Bots
                 throw new RuntimeException('RSS feed could not be downloaded.');
             }
 
-            $httpStatus = (int) ($response['status'] ?? 0);
             $items = self::parseFeed((string) ($response['body'] ?? ''));
             $itemsSeen = count($items);
             if ($items === []) {
@@ -783,13 +723,12 @@ final class Bots
 
             $feedHash = self::feedSourceHash($feedUrl);
             $itemHashes = array_map(static fn (array $item): string => hash('sha256', (string) ($item['guid'] ?? '')), $items);
-            $sourceItemHashes = self::feedItemHashes($sourceId, $itemHashes);
             $historyItemHashes = self::feedHistoryHashes($botUserId, $feedHash, $itemHashes);
 
             foreach ($items as $item) {
                 $itemGuid = (string) ($item['guid'] ?? '');
                 $hash = hash('sha256', $itemGuid);
-                if (isset($sourceItemHashes[$hash]) || isset($historyItemHashes[$hash])) {
+                if (isset($historyItemHashes[$hash])) {
                     continue;
                 }
 
@@ -813,42 +752,25 @@ final class Bots
                     (string) ($feedLink['url_hash'] ?? ''),
                     (string) ($item['image_url'] ?? '')
                 );
-                $feedItem = [
-                    'source_id' => $sourceId,
-                    'item_hash' => $hash,
-                ];
-                if (!self::hasCompactFeedItems()) {
-                    $feedItem += [
-                        'content_id' => $contentId,
-                        'item_guid' => $itemGuid,
-                        'item_published_at' => $item['published_at'] ?? null,
-                        'created_at' => $publishedAt,
-                    ];
-                }
-                insert('bot_feed_items', $feedItem);
                 self::recordFeedHistory(
                     $botUserId,
                     $feedHash,
                     $hash,
-                    $itemGuid,
-                    $contentId,
-                    (string) ($item['published_at'] ?? ''),
                     $publishedAt
                 );
-                $sourceItemHashes[$hash] = true;
                 $historyItemHashes[$hash] = true;
                 update('bot_sources', ['last_imported_at' => $publishedAt], ['id' => $sourceId]);
-                self::finishSourceRun($runId, 'posted', $itemsSeen, 1, $contentId, $httpStatus);
+                self::finishSourceRun($runId, 'posted', $itemsSeen);
 
                 return ['source_id' => $sourceId, 'status' => 'posted', 'content_id' => $contentId];
             }
 
-            self::finishSourceRun($runId, 'current', $itemsSeen, 0, 0, $httpStatus);
+            self::finishSourceRun($runId, 'current', $itemsSeen);
             return ['source_id' => $sourceId, 'status' => 'current'];
         } catch (Throwable $exception) {
             $error = self::feedText($exception->getMessage(), 500);
             update('bot_sources', ['last_error' => $error], ['id' => $sourceId]);
-            self::finishSourceRun($runId, 'error', $itemsSeen, 0, 0, $httpStatus, $error);
+            self::finishSourceRun($runId, 'error', $itemsSeen, $error);
             return ['source_id' => $sourceId, 'status' => 'error', 'error' => $error];
         }
     }
