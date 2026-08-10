@@ -742,7 +742,6 @@ final class Bots
                     'body' => $body,
                     'author_id' => $botUserId,
                     'published_at' => $publishedAt,
-                    'created_at' => $publishedAt,
                 ]);
                 status_sync_tags($contentId, status_tags_from_text($body));
                 $feedLink = StatusLinks::fromRaw((string) ($item['url'] ?? ''));
