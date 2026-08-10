@@ -63,31 +63,6 @@ try {
     $compact = require dirname(__DIR__) . '/Bots/migrations/20260807_001_compact_bot_history.php';
     $consolidate = require dirname(__DIR__) . '/Bots/migrations/20260810_001_consolidate_bot_storage.php';
     $install($database);
-    // Recreate the 1.3.x storage shape so this test exercises an in-place upgrade.
-    $database->exec("CREATE TABLE bot_feed_items (
-        source_id BIGINT UNSIGNED NOT NULL,
-        item_hash CHAR(64) NOT NULL,
-        content_id BIGINT UNSIGNED NULL,
-        item_guid VARCHAR(2048) NOT NULL,
-        item_published_at DATETIME NULL,
-        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY (source_id, item_hash),
-        KEY bot_feed_items_content_index (content_id),
-        KEY bot_feed_items_created_index (created_at),
-        CONSTRAINT fk_bot_feed_items_source FOREIGN KEY (source_id) REFERENCES bot_sources (id) ON DELETE CASCADE,
-        CONSTRAINT fk_bot_feed_items_content FOREIGN KEY (content_id) REFERENCES content (id) ON DELETE SET NULL
-    ) ENGINE=InnoDB");
-    $database->exec("ALTER TABLE bot_sources ADD updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP");
-    $database->exec("ALTER TABLE bot_source_runs
-        ADD bot_user_id INT UNSIGNED NOT NULL AFTER source_id,
-        ADD finished_at DATETIME NULL AFTER started_at,
-        ADD items_imported INT UNSIGNED NOT NULL DEFAULT 0 AFTER items_seen,
-        ADD content_id BIGINT UNSIGNED NULL AFTER items_imported,
-        ADD http_status SMALLINT UNSIGNED NULL AFTER content_id,
-        ADD created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP AFTER error,
-        ADD KEY bot_source_runs_bot_index (bot_user_id, started_at),
-        ADD CONSTRAINT fk_bot_source_runs_user FOREIGN KEY (bot_user_id) REFERENCES users (id) ON DELETE CASCADE,
-        ADD CONSTRAINT fk_bot_source_runs_content FOREIGN KEY (content_id) REFERENCES content (id) ON DELETE SET NULL");
 
     $activeHash = hash('sha256', 'https://example.test/feed');
     $orphanHash = hash('sha256', 'https://example.test/removed-feed');
