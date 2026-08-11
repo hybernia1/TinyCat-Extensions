@@ -43,25 +43,19 @@ if (method() === 'PATCH') {
         'bio' => plain_text_limit((string) input('bio', ''), 500),
     ];
     if ($avatar['changed']) {
-        $payload['avatar_config'] = $avatar['json'];
+        $payload['avatar_exists'] = $avatar['uploaded'] ? 1 : 0;
+        $payload['updated_at'] = user_avatar_updated_at($account);
     }
 
-    try {
-        db_transaction(static function () use ($payload, $id, $status): void {
-            update('users', $payload, ['id' => $id]);
-            if ($status !== 'active') {
-                update('bot_sources', ['enabled' => 0], ['bot_user_id' => $id]);
-            }
-        });
-    } catch (Throwable $exception) {
-        if ($avatar['uploaded']) {
-            Avatar::delete($avatar['config']);
+    db_transaction(static function () use ($payload, $id, $status): void {
+        update('users', $payload, ['id' => $id]);
+        if ($status !== 'active') {
+            update('bot_sources', ['enabled' => 0], ['bot_user_id' => $id]);
         }
-        throw $exception;
-    }
+    });
 
-    if ($avatar['changed']) {
-        Avatar::delete($account['avatar_config'] ?? null, $avatar['config']);
+    if ($avatar['changed'] && !$avatar['uploaded']) {
+        Avatar::delete($id);
     }
 
     $response = BotAdmin::accountsPayload($id);
