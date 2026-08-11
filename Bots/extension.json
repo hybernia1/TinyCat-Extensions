@@ -7,9 +7,9 @@
         "en": "Publish RSS and Atom feed items through bot accounts."
     },
     "homepage": "https://github.com/hybernia1/TinyCat-Extensions/tree/main/Bots",
-    "version": "1.4.2",
+    "version": "1.4.3",
     "requires": {
-        "tinycat": "2.0.1",
+        "tinycat": "2.0.42",
         "php": "8.4.0"
     },
     "entry": "bootstrap.php",
